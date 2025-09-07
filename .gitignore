@@ -13,7 +13,7 @@ secrets.yaml
 secrets.yml
 secrets.json
 config/apple_private_key.p8  
-
+config/apple_jw.txt 
 
 # Python
 __pycache__/
@@ -46,6 +46,7 @@ MANIFEST
 *.swp
 *.swo
 *~
+s
 
 # Temporary files
 tmp/

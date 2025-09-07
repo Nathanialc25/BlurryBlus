@@ -1,7 +1,5 @@
-# Use the same Apache Airflow version as in your compose file
 FROM apache/airflow:3.0.3
 
-# Switch to root to install system packages
 USER root
 
 # Install OpenSSL, CA certificates, and essential build tools.
@@ -19,10 +17,4 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Switch back to the airflow user for security
 USER airflow
-
-# Note: The providers (postgres and smtp) are installed via 
-# _PIP_ADDITIONAL_REQUIREMENTS in your docker-compose.yml environment.
-# They will be installed during container initialization with the proper
-# SSL libraries now available for compilation.

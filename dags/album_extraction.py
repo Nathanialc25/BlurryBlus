@@ -7,6 +7,9 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
+from airflow import Dataset
+from airflow.sensors.external_task import ExternalTaskSensor
+
 
 
 default_args = {
@@ -17,12 +20,14 @@ default_args = {
     'retry_delay': timedelta(minutes=5),
 }
 
-# Constants
+# VIEW_DATASET = Dataset("postgresql://mydb/public/v_weekly_new_releases")
+VIEW_DATASET = Dataset("view://apple_music/v_weekly_new_releases")
+
 STORE_FRONT = 'US'
 PLAYLIST_ID = "pl.2b0e6e332fdf4b7a91164da3162127b5"  # New Music Daily
 TABLE_NAME = "apple_music_album_releases"
 VIEW_NAME = "v_weekly_new_releases"
-JWT_PATH = '/opt/airflow/dags/apple_jwt.txt'
+JWT_PATH = '/opt/airflow/config/apple_jwt.txt'
 SCHEMA = 'public'
 
 CREATE_TABLE_SQL = f"""
@@ -185,10 +190,20 @@ with DAG(
     'apple_music_weekly_pipeline',
     default_args=default_args,
     description='Fetches recent trending audio, and pull it in the album info to postgres if release date was recent ',
-    schedule='@weekly',
+    schedule='0 9 * * 5',
     catchup=False,
     tags=['music', 'etl'],
 ) as dag:
+
+    check_jwt = ExternalTaskSensor(
+        task_id='check_jwt',
+        external_dag_id='apple_jwt_refresh', 
+        external_task_id=None,  # None, so the entire DAG run has to be sucessful
+        allowed_states=['success'],
+        mode='poke',
+        timeout=600, 
+        poke_interval=5
+    )
 
     create_table = SQLExecuteQueryOperator(
         task_id='create_table',
@@ -199,7 +214,8 @@ with DAG(
     create_view = SQLExecuteQueryOperator(
         task_id='create_view',
         conn_id='postgres_default',
-        sql=VIEW_SQL
+        sql=VIEW_SQL,
+        outlets=[VIEW_DATASET]
     )
 
     fetch_playlist = PythonOperator(
@@ -217,6 +233,4 @@ with DAG(
         python_callable=store_album_data,
     )
 
-    create_table >> fetch_playlist >> fetch_albums >> store_data >> create_view
-
-
+    check_jwt >> create_table >> fetch_playlist >> fetch_albums >> store_data >> create_view

@@ -44,18 +44,19 @@
 #
 # Feel free to modify this file to suit your needs.
 ---
+# This is all the extension field. Not a service, but used to define a reproducible configuration
 x-airflow-common:
+  # yaml anchor allowing this chunk to be used later
   &airflow-common
-  # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
-  # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
-  # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.3}
-  build: .
+  # Use this to pull a prebuilt image
+  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.3}          
+  # Use this to build from the dockerfile in this directory. it will look for the file literally called Dockerfile
+  build: .                                      
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow # format postgresql+psycopg2://user:password@hostname/database
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
@@ -66,27 +67,33 @@ x-airflow-common:
     AIRFLOW__CORE__STORE_DAG_CODE: 'true'
     #this will overwrite the sql lite connection in the airflow cfg
     AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow 
+    #removing those unecessary core DAG
     AIRFLOW__CORE__STORE_SERIALIZED_DAGS: 'false'
     AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: '300'
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
     APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}  # Will use env variable or empty if not set
     APPLE_KEY_ID: ${APPLE_KEY_ID:-}    # Will use env variable or empty if not set
-    # yamllint disable rule:line-length
-    # Use simple http server on scheduler for health checks
-    # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
-    # yamllint enable rule:line-length
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
+
+    # this should be moved at some point to my dockerfile.
     _PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-postgres==6.2.1 apache-airflow-providers-smtp==2.2.0"
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+  
+  #used to map the directories on my local, to the directories in the containers
+  #??? looks like its looking for an env variable but i didnt supply anything in .env, how does it know?????
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+
+  # All airflow processes will run from this user, and not root. defaulting to 50000, but in env I have 501.. I wonder which its grabbing
   user: "${AIRFLOW_UID:-50000}:0"
+
+  # defining the dependency, along with another yaml anchor, to be used later
   depends_on:
     &airflow-common-depends-on
     redis:
@@ -94,23 +101,48 @@ x-airflow-common:
     postgres:
       condition: service_healthy
 
+# Now onto supporting services
 services:
+
+#obviously our database for holding airflow metadata, DAG definitions, task histories, variables, connections, user information, etc.
   postgres:
+    #public image we snagged  here https://hub.docker.com/layers/library/postgres/13.0/images/sha256-f018e9368b20e43b78fdb2913ac69058b0c1e97acee248d6b00765609237d6f6
     image: postgres:13
+
+    # providing variables for the env
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
       POSTGRES_DB: airflow
+
+    #uses a named volume ,postgres-db-volume, to persist the database, otherwise it just goes away
+    # /var/lib/postgresql/data: the path inside the postgres container where the db stores everything
+    # postgres-db-volume : the name of the docker managed volume
+    # basically this helps persist the data somewhere outside the container thats managed by docker. So if i restart the container, the data is still saved.
+    # think that the container is just short term storage, and the named volume is the persisten storage
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+
+    # docker runs the pg_isready command inside the container to confirm the db is ready to accept connections, pg_isready literally only checks if the db server is taking connections,
+    # and testing specifically with the airflow user
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
       retries: 5
       start_period: 5s
+
+    # mapping port on my local host machine: port inside postgres container
+    # by default programs running on my local cannot talk wiht programs in a container - since they are isolated
+    # basically says take any connection coming into port 5432 on my local, and forward it to 5432 port on the postgres container
+    # basically allows me to connect to the db outside of docker. i can point duckdb or dbviz at port localhost:5432, and it can connect to the db inside the postgres
     ports:
       - "5432:5432"
+
+    #always restart, no down time! @(^_^)@
     restart: always
+
+  # Redis is the Message Broker / Queue for the Celery executor
+  #?? explain a bit more
 
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
@@ -118,6 +150,8 @@ services:
     image: redis:7.2-bookworm
     expose:
       - 6379
+
+    #runs the good old redis-cli ping to see if its running, and good to go
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

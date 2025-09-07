@@ -1,159 +1,71 @@
 import jwt
 import os
 from datetime import datetime, timedelta
-from typing import Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
 
 class AppleAuthManager:
     """
-    A class to manage Apple Music API JWT authentication.
-    Handles token generation, validation, and storage.
+    Manages Apple Music API JWT authentication.
+    Returns a valid JWT token, generating one if needed.
     """
     
     def __init__(self, team_id: str, key_id: str, private_key_path: str, jwt_store_path: str):
-        """
-        Initialize the Apple Auth Manager.
-        
-        Args:
-            team_id: Apple Developer Team ID
-            key_id: Apple Music Key ID
-            private_key_path: Path to the .p8 private key file
-            jwt_store_path: Path where JWT token will be stored/read
-        """
         self.team_id = team_id
         self.key_id = key_id
         self.private_key_path = private_key_path
         self.jwt_store_path = jwt_store_path
     
     def _load_private_key(self) -> str:
-        """
-        Load and validate the private key from file.
-        
-        Returns:
-            The private key content as a string
-            
-        Raises:
-            FileNotFoundError: If private key file doesn't exist
-            ValueError: If private key format is invalid
-        """
-        if not os.path.exists(self.private_key_path):
-            raise FileNotFoundError(f"Private key not found at {self.private_key_path}")
-        
+        """Load the private key from file."""
         with open(self.private_key_path, 'r') as f:
-            key_content = f.read().strip()
-        
-        # Validate key format
-        if not key_content.startswith("-----BEGIN PRIVATE KEY-----"):
-            raise ValueError("Private key missing BEGIN header")
-        if not key_content.endswith("-----END PRIVATE KEY-----"):
-            raise ValueError("Private key missing END footer")
-        
-        return key_content
+            return f.read().strip()
     
-    def check_jwt_validity(self) -> bool:
-        """
-        Check if existing JWT is still valid.
-        
-        Returns:
-            True if valid token exists, False otherwise
-        """
+    def _is_token_valid(self) -> bool:
+        """Check if stored token is still valid."""
         try:
+            #check if the location is even valid
             if not os.path.exists(self.jwt_store_path):
-                logger.debug("JWT store file does not exist")
                 return False
             
+            #if location is valid, now check the expiration, return if its still good
             with open(self.jwt_store_path, "r") as f:
-                content = f.read().strip().split('\n')
-                
-            if len(content) < 2:
-                logger.debug("JWT store file malformed - insufficient lines")
-                return False
-                
-            token, expiration_str = content[0], content[1]
-            expiration = datetime.fromisoformat(expiration_str)
+                token, expiration_str = f.read().strip().split('\n')[:2]
             
-            if expiration > datetime.utcnow():
-                logger.info("Valid JWT token found (expires: %s)", expiration)
-                return True
-            else:
-                logger.info("JWT token expired on %s", expiration)
-                return False
-                
-        except Exception as e:
-            logger.error("Error checking JWT validity: %s", str(e))
+            return datetime.fromisoformat(expiration_str) > datetime.utcnow()
+        #if none of the above worked, give back a false    
+        except Exception:
             return False
     
-    def generate_jwt(self) -> Tuple[str, datetime]:
+    def get_valid_token(self) -> str:
         """
-        Generate a new JWT token.
-        
-        Returns:
-            Tuple of (token_string, expiration_datetime)
-            
-        Raises:
-            Exception: If JWT generation fails
+        Get a valid JWT token - generates one if needed.
         """
-        try:
-            issued_at = datetime.utcnow()
-            expiration = issued_at + timedelta(days=179)  # 180 days max, give 1 day buffer
-            
-            headers = {
-                "alg": "ES256",
-                "kid": self.key_id,
-                "typ": "JWT"
-            }
-            
-            payload = {
-                "iss": self.team_id,
-                "iat": int(issued_at.timestamp()),
-                "exp": int(expiration.timestamp()),
-            }
-            
-            private_key = self._load_private_key()
-            token = jwt.encode(payload, private_key, algorithm="ES256", headers=headers)
-            
-            logger.info("Successfully generated new JWT token")
-            return token, expiration
-            
-        except Exception as e:
-            logger.error("Failed to generate JWT: %s", str(e))
-            raise
-    
-    def ensure_valid_jwt(self) -> str:
-        """
-        Ensure we have a valid JWT, generating one if needed.
-        
-        Returns:
-            Valid JWT token string
-            
-        Raises:
-            Exception: If token generation fails
-        """
-        if self.check_jwt_validity():
+        # Return existing token if valid
+        if self._is_token_valid():
             with open(self.jwt_store_path, "r") as f:
                 return f.read().split('\n')[0].strip()
         
-        token, expiration = self.generate_jwt()
+        # Generate new token if is_token_valid is false
+        issued_at = datetime.utcnow()
+        expiration = issued_at + timedelta(days=179)
         
-        # Ensure directory exists
+        token = jwt.encode(
+            {
+                "iss": self.team_id,
+                "iat": int(issued_at.timestamp()),
+                "exp": int(expiration.timestamp()),
+            },
+            self._load_private_key(),
+            algorithm="ES256",
+            headers={"alg": "ES256", "kid": self.key_id, "typ": "JWT"}
+        )
+        
+        # Store token
         os.makedirs(os.path.dirname(self.jwt_store_path), exist_ok=True)
-        
         with open(self.jwt_store_path, "w") as f:
             f.write(f"{token}\n{expiration.isoformat()}\n")
         
         logger.info("Generated new JWT valid until %s", expiration.isoformat())
         return token
-    
-    def get_current_token(self) -> Optional[str]:
-        """
-        Get the current token if valid, None otherwise.
-        
-        Returns:
-            Current valid token or None
-        """
-        if self.check_jwt_validity():
-            with open(self.jwt_store_path, "r") as f:
-                return f.read().split('\n')[0].strip()
-        return None
