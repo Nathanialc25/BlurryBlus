@@ -1,3 +1,5 @@
+# 9/9 this is alright to go, i have a good understanding of it all, and notes are in obisidian
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -376,6 +378,19 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+
+  #new service i am making! this app will help with running information from the form to the db
+  user-form-app:
+    build: ./user_form_app  
+    ports:
+      - "5001:5000"  # Maps local machine's port 5001 to the container's port 5000
+    environment:
+      - DB_HOST=postgres  
+      - DB_NAME=airflow
+      - DB_USER=airflow
+      - DB_PASS=airflow
+    depends_on:
+      - postgres
 
 volumes:
   postgres-db-volume:
