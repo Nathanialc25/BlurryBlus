@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from helpers.apple_auth import AppleAuthManager
 import os
 
-JWT_PATH = "/opt/airflow/config/apple_jwt.txt"
-PRIVATE_KEY_PATH = "/opt/airflow/config/apple_private_key.p8"
+JWT_PATH = "/opt/airflow/secrets/apple_jwt.txt"
+PRIVATE_KEY_PATH = "/opt/airflow/secrets/apple_private_key.p8"
 
 TEAM_ID = os.environ.get("APPLE_TEAM_ID") 
 KEY_ID = os.environ.get("APPLE_KEY_ID")
