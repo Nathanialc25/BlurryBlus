@@ -1,46 +1,110 @@
+from rapidfuzz import fuzz, process
+from airflow.providers.postgres.hooks.postgres import PostgresHook
 
-# import json
-# from datetime import dat#etime
 
 '''
-9/9 definitely needs work. this recomendation system isnt too strong, 
-There is a huge issue with the single favorite artist input, hwo to have that clean, limit to one person, how do i clean that, should I just match to similar artist? that would take some mapping
+9/20 definitely needs work. this recommendation system isn’t too strong. 
+some way of cleaning the artist from the persons input up.
+Should I just match to similar artists? That would take some mapping.
 '''
 
-def calculate_album_score(album, user_prefs):
+
+def get_known_artists():
+    """
+    Pulls all distinct artists from the full historical table.
+    Returns a list of artist names.
+    """
+    hook = PostgresHook(postgres_conn_id='postgres_default')
+    records = hook.get_records("SELECT DISTINCT artist FROM apple_music_album_releases")
+    return [r[0] for r in records if r[0]]
+
+def clean_user_artist_input(user_input, known_artists=None, threshold=70):
+    """
+    Cleans a user's favorite artist input by matching it against known artists.
+    Returns the closest known artist or None if no close match found.
+    """
+    if not user_input:
+        return None
+
+    user_input_clean = user_input.strip().lower()
+    
+    if not known_artists:
+        known_artists = get_known_artists()
+
+    # Use rapidfuzz to get best match
+    match, score, _ = process.extractOne(user_input_clean, known_artists, scorer=fuzz.token_set_ratio)
+    
+    if score >= threshold:
+        return match
+    else:
+        return user_input  # fallback to raw input if no close match
+
+
+def is_artist_match(user_artist, album_artist, threshold=70):
+    """
+    Returns True if the user input artist is a close match to the album's artist.
+    """
+    if not user_artist or not album_artist:
+        return False
+    
+    user_artist = user_artist.lower().strip()
+    album_artist = album_artist.lower().strip()
+    
+    # Fuzzy similarity
+    similarity = fuzz.token_set_ratio(user_artist, album_artist)
+    return similarity >= threshold
+
+def genre_score(album_genres, user_genres, max_points=30):
+    """
+    Score genres using Jaccard similarity.
+    - Perfect match = max_points
+    - Partial overlap = proportional score
+    """
+    if not album_genres or not user_genres:
+        return 0
+    
+    album_set = set(album_genres)
+    user_set = set(user_genres)
+    
+    overlap = album_set & user_set
+    union = album_set | user_set
+    
+    ratio = len(overlap) / len(union)
+    return round(ratio * max_points)
+
+def calculate_album_score(album, user_prefs, known_artists=None):
     """
     Calculates a personalized score for an album based on user preferences.
-    album: dict (row from your album view)
-    user_prefs: dict (row from user_preferences table for a specific user)
+    Now integrates cleaned/normalized artist input.
     """
     score = 0
 
-    # Genre Matching (important factor)
+    # Genre Matching (Jaccard)
     album_genres = [g.strip() for g in album['genre'].split(',')] if album['genre'] else []
-    user_genres = user_prefs['genres']  
-    
-    # O(N^2?) - lol maybe adjust this
-    for album_genre in album_genres:
-        if album_genre in user_genres:
-            score += 15  
+    user_genres = user_prefs['genres']
+    score += genre_score(album_genres, user_genres)
 
-    #Favorite Artist Match (most important)  
-    # this will need to  be cleaned, we have way to much variability for input
-    user_fav_artist = user_prefs.get('favorite_artist', '').lower()
-    album_artist = album['artist'].lower() if album['artist'] else ''
+    # Favorite Artist Match (fuzzy with cleaned input)
+    user_fav_artist = user_prefs.get('favorite_artist', '')
+    clean_artist = clean_user_artist_input(user_fav_artist, known_artists=known_artists)
+    album_artist = album.get('artist', '')
     
-    if user_fav_artist and user_fav_artist in album_artist:
-        score += 25  
+    if is_artist_match(clean_artist, album_artist):
+        score += 20  
 
-    # Album Length Preference (mid importance)
+    # Album Length Preference
     user_length_pref = user_prefs.get('album_length', 'standard')
     track_count = album.get('track_count', 0)
     
-    if user_length_pref == 'short' and 1 <= track_count <= 6:
+    if user_length_pref == 'short' and track_count <= 8:
         score += 10
-    elif user_length_pref == 'standard' and 7 <= track_count <= 18:
+    elif user_length_pref == 'standard' and 6 <= track_count <= 20:
         score += 10
-    elif user_length_pref == 'long' and track_count >= 19:
+    elif user_length_pref == 'long' and track_count >= 15:
         score += 10
+
+    # Synergy of artist + genre
+    if is_artist_match(clean_artist, album_artist) and genre_score(album_genres, user_genres) > 0:
+        score += 5 
 
     return score
