@@ -34,12 +34,3 @@ USER airflow
 
 # install python dependencies
 RUN pip install --no-cache-dir rapidfuzz
-
-# stop everything
-docker compose down  
-
-# rebuild with the updated Dockerfile
-docker compose build --no-cache  
-
-# bring it back up in detached mode
-docker compose up -d
