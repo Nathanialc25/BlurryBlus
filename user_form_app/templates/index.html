@@ -18,7 +18,7 @@
             padding: 40px;
             border-radius: 16px;
             box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            max-width: 500px; /* Widened container */
+            max-width: 500px;
             width: 100%;
         }
         h1 {
@@ -45,16 +45,23 @@
             box-sizing: border-box;
             font-size: 1em;
         }
+        .name-fields {
+            display: flex;
+            gap: 15px;
+        }
+        .name-fields > div {
+            flex: 1;
+        }
         .genre-list, .length-options {
             display: flex;
             flex-wrap: wrap;
             margin-bottom: 20px;
-            gap: 10px; /* Consistent spacing */
+            gap: 10px;
         }
         .genre-item, .length-item {
             display: flex;
             align-items: center;
-            white-space: nowrap; /* Prevents text wrapping */
+            white-space: nowrap;
         }
         .genre-item label, .length-item label {
             margin: 0 0 0 8px;
@@ -96,8 +103,19 @@
         <h1>Sign Up For Weekly Music Recommendations</h1>
         <p>Tell us your taste to get started!</p>
 
-        <!-- This mean to use the POST delivery method, meaning the data is hidden lowkey, send it directly to the /send page!-->
         <form action="/submit" method="post">
+            <!-- Name Fields -->
+            <div class="name-fields">
+                <div>
+                    <label for="first_name">First Name:</label>
+                    <input type="text" id="first_name" name="first_name" required>
+                </div>
+                <div>
+                    <label for="last_name">Last Name:</label>
+                    <input type="text" id="last_name" name="last_name" required>
+                </div>
+            </div>
+
             <!-- Email -->
             <label for="email">Your Email:</label>
             <input type="email" id="email" name="email" required>
@@ -117,7 +135,7 @@
             <label for="favorite_artist">Name one of your all-time favorite artists:</label>
             <input type="text" id="favorite_artist" name="favorite_artist" placeholder="e.g., Tyler The Creator, Taylor Swift, Kendrick Lamar">
 
-            <!-- Album Length  - SHORTENED LABELS -->
+            <!-- Album Length -->
             <label>What's your ideal album length?</label>
             <div class="length-options">
                 <div class="length-item">
@@ -133,7 +151,7 @@
                     <label for="length-long">Long (19+)</label>
                 </div>
             </div>
-                <!--The form packages all data into a POST package -->
+
             <button type="submit">Sign Up</button>
         </form>
         

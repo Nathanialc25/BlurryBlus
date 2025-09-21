@@ -4,7 +4,9 @@ from airflow.providers.postgres.hooks.postgres import PostgresHook
 
 '''
 9/20 definitely needs work. this recommendation system isn’t too strong. 
-some way of cleaning the artist from the persons input up.
+
+we now are cleaning the artist before comparing to the album artist. Need to also find a way to have multiple inputs for an artist, maybe separated by commas
+
 Should I just match to similar artists? That would take some mapping.
 '''
 
@@ -59,12 +61,18 @@ def genre_score(album_genres, user_genres, max_points=30):
     Score genres using Jaccard similarity.
     - Perfect match = max_points
     - Partial overlap = proportional score
+    - Ignores filler tags like "Music"
     """
     if not album_genres or not user_genres:
         return 0
-    
-    album_set = set(album_genres)
-    user_set = set(user_genres)
+
+    # remove filler tags
+    filler = {"Music"}
+    album_set = {g.strip().lower() for g in album_genres if g.strip().lower() not in filler}
+    user_set = {g.strip().lower() for g in user_genres if g.strip().lower() not in filler}
+
+    if not album_set or not user_set:
+        return 0
     
     overlap = album_set & user_set
     union = album_set | user_set

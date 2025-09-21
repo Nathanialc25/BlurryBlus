@@ -24,6 +24,7 @@ DB_PASS = os.getenv('DB_PASS', 'your_password')
 COMMON_GENRES = [
     'Alternative',
     'Pop',
+    'Rap',
     'Country',
     'R&B/Soul',
     'Rock',
@@ -61,30 +62,31 @@ def submit_form():
     """Handles the form submission and inserts data into Postgres."""
 
     #gathering info from the from the person just filled out
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
     email = request.form.get('email')
     selected_genres = request.form.getlist('genres') 
     favorite_artist = request.form.get('favorite_artist') 
     album_length = request.form.get('album_length')       
 
     # Basic validation 
-    if not email or not selected_genres or not album_length: 
-        return "Error: Email, at least one genre, and album length are required.", 400
+    if not first_name or not last_name or not email or not selected_genres or not album_length: 
+        return "Error: First name, last name, email, at least one genre, and album length are required.", 400
 
     # Connect to the database and insert the data
     try:
         conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
         cursor = conn.cursor()
 
-        # SQL INSERT statement. `%s` is a placeholder for safe parameterization.
-        # s for strings, f for floats, remember that
+        # SQL INSERT statement with first_name and last_name
         insert_query = """
-            INSERT INTO user_preferences (email, genres, favorite_artist, album_length, is_active)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO user_preferences (first_name, last_name, email, genres, favorite_artist, album_length, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
         
         genres_json = json.dumps(selected_genres)
 
-        cursor.execute(insert_query, (email, genres_json, favorite_artist, album_length, True))
+        cursor.execute(insert_query, (first_name, last_name, email, genres_json, favorite_artist, album_length, True))
         conn.commit()  # Save the changes to the database
 
         #close the connection
