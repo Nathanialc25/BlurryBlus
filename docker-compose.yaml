@@ -392,6 +392,28 @@ services:
       - DB_PASS=airflow
     depends_on:
       - postgres
+    networks:  # Added this
+      - airflow-network 
+
+  # New ngrok service
+  ngrok:
+    image: ngrok/ngrok:latest
+    depends_on:
+      - user-form-app
+    environment:
+      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}  # Get from ngrok.com
+      - NGROK_PROTOCOL=http
+      - NGROK_PORT=user-form-app:5000  # Points to your Flask container
+    command: http user-form-app:5000 # important!
+    ports:
+      - "4040:4040"  # ngrok web interface
+    networks: 
+      - airflow-network  
+
 
 volumes:
   postgres-db-volume:
+
+networks:  
+  airflow-network:
+    driver: bridge
