@@ -104,6 +104,8 @@ x-airflow-common:
     postgres:
       condition: service_healthy
 
+  networks: 
+    - airflow-network
 # Now onto supporting services
 services:
 
@@ -144,6 +146,11 @@ services:
     #always restart, no down time! @(^_^)@
     restart: always
 
+    #helps put my postgres on the same network as the flask app, now they should be able to communicate.
+    networks:  # Add this line
+      - airflow-network
+
+
   # Redis is the Message Broker / Queue for the Celery executor
   #?? explain a bit more
 
@@ -162,6 +169,8 @@ services:
       retries: 50
       start_period: 30s
     restart: always
+    networks: 
+      - airflow-network
   
   airflow-apiserver:
     <<: *airflow-common
