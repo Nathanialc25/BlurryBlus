@@ -4,6 +4,7 @@ from psycopg2 import IntegrityError  # Add this import
 import os
 from datetime import date, timedelta
 import json
+from utils.related_artist import process_user_artists
 
 '''
 9/8
@@ -57,18 +58,18 @@ def error():
     error_message = request.args.get('message', 'An unexpected error occurred.')
     return render_template('error.html', error_message=error_message)
 
-
 @app.route('/submit', methods=['POST'])
 def submit_form():
-    """Handles the form submission and inserts data into Postgres."""
-
-    #gathering info from the from the person just filled out
+    # Get form data
     first_name = request.form.get('first_name')
     last_name = request.form.get('last_name')
     email = request.form.get('email')
     selected_genres = request.form.getlist('genres') 
-    favorite_artist = request.form.get('favorite_artist') 
+    favorite_artist_input = request.form.get('favorite_artist')  # ← Renamed for clarity
     album_length = request.form.get('album_length')       
+
+    # Process the artists
+    favorite_artists, related_artists = process_user_artists(favorite_artist_input)
 
     # Basic validation 
     if not first_name or not last_name or not email or not selected_genres or not album_length: 
@@ -80,32 +81,32 @@ def submit_form():
         conn = psycopg2.connect(host=DB_HOST, database=DB_NAME, user=DB_USER, password=DB_PASS)
         cursor = conn.cursor()
 
-        # SQL INSERT statement with first_name and last_name
+        # Updated SQL INSERT statement to include related_artists
         insert_query = """
-            INSERT INTO user_preferences (first_name, last_name, email, genres, favorite_artist, album_length, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO user_preferences (first_name, last_name, email, genres, favorite_artist, related_artists, album_length, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         genres_json = json.dumps(selected_genres)
+        favorite_artists_str = ','.join(favorite_artists) 
+        related_artists_str = ','.join(related_artists) 
 
-        cursor.execute(insert_query, (first_name, last_name, email, genres_json, favorite_artist, album_length, True))
-        conn.commit()  # Save the changes to the database
+        cursor.execute(insert_query, (first_name, last_name, email, genres_json, favorite_artists_str, related_artists_str, album_length, True))
+        conn.commit()
 
-        #close the connection
         cursor.close()
         conn.close()
 
     except IntegrityError as e:
-        # Handle database constraint violations
         error_msg = "This email address is already registered for this product. Please use a different email."
         return redirect(url_for('error', message=error_msg))
         
     except Exception as e:
-        # Handle any other errors
         error_msg = "A system error occurred. Please try again later."
         return redirect(url_for('error', message=error_msg))
 
     return redirect(url_for('success'))
+
 
 @app.route('/success')
 def success():

@@ -10,7 +10,6 @@ we now are cleaning the artist before comparing to the album artist. Need to als
 Should I just match to similar artists? That would take some mapping.
 '''
 
-
 def get_known_artists():
     """
     Pulls all distinct artists from the full historical table.
@@ -40,7 +39,6 @@ def clean_user_artist_input(user_input, known_artists=None, threshold=70):
         return match
     else:
         return user_input  # fallback to raw input if no close match
-
 
 def is_artist_match(user_artist, album_artist, threshold=70):
     """
@@ -80,25 +78,38 @@ def genre_score(album_genres, user_genres, max_points=30):
     ratio = len(overlap) / len(union)
     return round(ratio * max_points)
 
+
 def calculate_album_score(album, user_prefs, known_artists=None):
     """
     Calculates a personalized score for an album based on user preferences.
-    Now integrates cleaned/normalized artist input.
+    Now includes scoring for related artists.
     """
     score = 0
 
     # Genre Matching (Jaccard)
     album_genres = [g.strip() for g in album['genre'].split(',')] if album['genre'] else []
     user_genres = user_prefs['genres']
-    score += genre_score(album_genres, user_genres)
+    genre_points = genre_score(album_genres, user_genres)
+    score += genre_points
 
     # Favorite Artist Match (fuzzy with cleaned input)
     user_fav_artist = user_prefs.get('favorite_artist', '')
     clean_artist = clean_user_artist_input(user_fav_artist, known_artists=known_artists)
     album_artist = album.get('artist', '')
     
+    # Direct artist match (highest priority)
     if is_artist_match(clean_artist, album_artist):
-        score += 20  
+        score += 25 
+    
+    # Related artists match (medium priority)
+    related_artists = user_prefs.get('related_artists', [])
+    if isinstance(related_artists, str):
+        related_artists = [artist.strip() for artist in related_artists.split(',') if artist.strip()]
+    
+    for related_artist in related_artists:
+        if is_artist_match(related_artist, album_artist):
+            score += 15
+            break 
 
     # Album Length Preference
     user_length_pref = user_prefs.get('album_length', 'standard')
@@ -111,8 +122,13 @@ def calculate_album_score(album, user_prefs, known_artists=None):
     elif user_length_pref == 'long' and track_count >= 15:
         score += 10
 
-    # Synergy of artist + genre
-    if is_artist_match(clean_artist, album_artist) and genre_score(album_genres, user_genres) > 0:
-        score += 5 
+    # Synergy bonuses
+    if is_artist_match(clean_artist, album_artist) and genre_points > 0:
+        score += 8
+    
+    # Related artist + genre synergy
+    related_match = any(is_artist_match(rel_artist, album_artist) for rel_artist in related_artists)
+    if related_match and genre_points > 0:
+        score += 5
 
     return score
