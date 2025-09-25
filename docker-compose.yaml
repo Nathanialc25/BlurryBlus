@@ -401,6 +401,8 @@ services:
       - DB_PASS=airflow
     depends_on:
       - postgres
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}/secrets:/opt/airflow-docker/secrets
     networks:  # Added this
       - airflow-network 
 

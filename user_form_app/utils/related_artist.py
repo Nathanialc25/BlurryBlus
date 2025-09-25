@@ -4,7 +4,7 @@ import re
 
 def get_apple_music_token():
     """Get Apple Music JWT token from file"""
-    token_path = 'airflow-docker/secrets/apple_jwt.txt'
+    token_path = '/opt/airflow-docker/secrets/apple_jwt.txt'
     with open(token_path, 'r') as f:
         token_content = f.read().strip()
         token_match = re.search(r'([a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+)', token_content)
