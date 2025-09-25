@@ -110,13 +110,12 @@ def submit_form():
 
 @app.route('/success')
 def success():
-    """A simple success page."""
+    """Success page."""
     today = date.today()
     days_until_friday = (4 - today.weekday() + 7) % 7
     if days_until_friday == 0:
         days_until_friday = 7
     next_friday = today + timedelta(days=days_until_friday)
-
-    # Format the date first, then use it in the f-string
     formatted_date = next_friday.strftime('%Y-%m-%d')
-    return f"Thank you for signing up! You'll start receiving recommendations this upcoming Friday on {formatted_date}!"
+    
+    return render_template('success.html', formatted_date=formatted_date)
