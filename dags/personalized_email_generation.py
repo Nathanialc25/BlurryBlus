@@ -77,15 +77,19 @@ def get_active_subscribers():
     
     return subscribers
 
-
+# Need to find a more dynamic way to write blurbs, would be cool to hit openAI for this
 def generate_album_blurb(artist: str, album: str) -> str:
-    # Temporary: Remove OpenAI until you set it up properly
-    # Replace with simple blurbs or implement your OpenAI connection later
     blurbs = [
         f"Fresh sounds from {artist} that you won't want to miss",
         f"{artist} returns with a compelling new collection",
-        f"A standout release from {artist} worth checking out",
-        f"New music from {artist} that's making waves"
+        f"A standout release from {artist} worth checking out", 
+        f"New music from {artist} that's making waves",
+        f"{artist} delivers with this captivating new album",
+        f"Don't miss this latest offering from {artist}",
+        f"{artist} continues to innovate with this release",
+        f"A must-listen addition from {artist}",
+        f"This new album showcases {artist}'s evolving sound",
+        f"{artist} brings the heat with this fresh collection"
     ]
     return random.choice(blurbs)
 
