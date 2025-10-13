@@ -65,7 +65,7 @@ def submit_form():
     last_name = request.form.get('last_name')
     email = request.form.get('email')
     selected_genres = request.form.getlist('genres') 
-    favorite_artist_input = request.form.get('favorite_artist')  # ← Renamed for clarity
+    favorite_artist_input = request.form.get('favorite_artist') 
     album_length = request.form.get('album_length')       
 
     # Process the artists

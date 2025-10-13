@@ -74,7 +74,9 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: '300'
     AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
     APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}  # Will use env variable or empty if not set
-    APPLE_KEY_ID: ${APPLE_KEY_ID:-}    # Will use env variable or empty if not set
+    APPLE_KEY_ID: ${APPLE_KEY_ID:-}    
+    BREVO_LOGIN: ${BREVO_LOGIN:-} 
+    BREVO_PASSWORD: ${BREVO_PASSWORD:-}  
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
@@ -192,6 +194,10 @@ services:
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    environment:
+      <<: *airflow-common-env
+      BREVO_LOGIN: ${BREVO_LOGIN}
+      BREVO_PASSWORD: ${BREVO_PASSWORD}
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
@@ -222,8 +228,12 @@ services:
   airflow-worker:
     <<: *airflow-common
     command: celery worker
+    environment:
+      <<: *airflow-common-env
+      BREVO_LOGIN: ${BREVO_LOGIN}
+      BREVO_PASSWORD: ${BREVO_PASSWORD}
+      DUMB_INIT_SETSID: "0"
     healthcheck:
-      # yamllint disable rule:line-length
       test:
         - "CMD-SHELL"
         - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
@@ -231,12 +241,6 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    environment:
-      <<: *airflow-common-env
-      # Required to handle warm shutdown of the celery workers properly
-      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
-      DUMB_INIT_SETSID: "0"
-      PIP_ADDITIONAL_REQUIREMENTS: "apache-airflow-providers-postgres==6.2.1"
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
@@ -248,6 +252,10 @@ services:
   airflow-triggerer:
     <<: *airflow-common
     command: triggerer
+    environment:
+      <<: *airflow-common-env
+      BREVO_LOGIN: ${BREVO_LOGIN}
+      BREVO_PASSWORD: ${BREVO_PASSWORD}
     healthcheck:
       test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
       interval: 30s
