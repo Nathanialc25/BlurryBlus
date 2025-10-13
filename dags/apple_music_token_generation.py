@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from helpers.apple_auth import AppleAuthManager
 import os
 
-JWT_PATH = "/opt/airflow/secrets/apple_jwt.txt"
-PRIVATE_KEY_PATH = "/opt/airflow/secrets/apple_private_key.p8"
+JWT_PATH = "/opt/airflow/secrets/apple_jwt.txt" # move this to a variable in airflow UI
+PRIVATE_KEY_PATH = "/opt/airflow/secrets/apple_private_key.p8" # move this to a variable in airflow UI
 
 TEAM_ID = os.environ.get("APPLE_TEAM_ID")
 KEY_ID = os.environ.get("APPLE_KEY_ID")
@@ -33,7 +33,7 @@ default_args = {
 with DAG(
     dag_id="apple_jwt_refresh",
     start_date=datetime(2025, 7, 30),
-    schedule="30 8 * * 5",   # Fridays 8:45am
+    schedule="30 12 * * 5",   # Fridays 8:30am
     catchup=False,
     default_args=default_args,
     tags=["apple", "jwt"],
