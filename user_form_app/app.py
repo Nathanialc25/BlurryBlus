@@ -15,33 +15,33 @@ Good to commit
 
 app = Flask(__name__)
 
-# env variables arent working, its just coalescing to second value- which is defined in the docker compose yaml
+# 9/30 looks like env variables are running fine 
 DB_HOST = os.getenv('DB_HOST', 'localhost')  
 DB_NAME = os.getenv('DB_NAME', 'your_database_name')
 DB_USER = os.getenv('DB_USER', 'your_username')
 DB_PASS = os.getenv('DB_PASS', 'your_password')
 
-#Genres found in the music so far, used in dynamic list in HTML
+#Genres found in the music so far, used in dynamic list in HTML, 9/30 adjsuted the order
 COMMON_GENRES = [
     'Alternative',
-    'Pop',
-    'Rap',
-    'Country',
-    'R&B/Soul',
-    'Rock',
-    'Dance',
-    'Folk',
-    'K-Pop',
-    'Soundtrack',
     'Christian',
+    'Country',
+    'Dance',
     'Electronic',
+    'Folk',
     'Hip-Hop/Rap',
     'House',
     'Indie Pop',
     'Indie Rock',
+    'K-Pop',
     'Latin',
     'Metal',
+    'Pop',
+    'Rap',
+    'R&B/Soul',
+    'Rock',
     'Singer/Songwriter',
+    'Soundtrack',
     'TV Soundtrack',
     'Urbano latino'
 ]

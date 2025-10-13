@@ -58,7 +58,7 @@ INSERT INTO {TABLE_NAME} (
     cover_art_url
 )
 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-ON CONFLICT (complex_id) DO NOTHING;
+ON CONFLICT (url) DO NOTHING;
 """
 
 VIEW_SQL = f"""
@@ -66,9 +66,9 @@ CREATE OR REPLACE VIEW {VIEW_NAME} AS
 SELECT * 
 FROM {SCHEMA}.{TABLE_NAME}
 WHERE 
-    DATE(release_date) BETWEEN (CURRENT_DATE - INTERVAL '7 days') AND CURRENT_DATE
+    DATE(release_date) BETWEEN (CURRENT_DATE - INTERVAL '6 days') AND CURRENT_DATE
     AND 
-    DATE(load_date) BETWEEN (CURRENT_DATE - INTERVAL '7 days') AND CURRENT_DATE;
+    DATE(load_date) BETWEEN (CURRENT_DATE - INTERVAL '6 days') AND CURRENT_DATE;
 """
 
 def generate_album_id(album_data: dict) -> str:

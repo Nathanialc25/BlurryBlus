@@ -38,7 +38,7 @@ SCHEMA = 'public'
 BREVO_LOGIN = "96663f001@smtp-brevo.com"
 BREVO_PASSWORD = "WS8jLYZsnA71Mc9D"
 VIEW_DATASET = Dataset("view://apple_music/v_weekly_new_releases")
-TEST_MODE = True  
+TEST_MODE = False  
 
 def get_active_subscribers():
     """Fetches all active subscribers with their preferences."""
@@ -121,7 +121,8 @@ def fetch_this_weeks_albums():
     
     return albums
 
-def generate_email_content(run_date, **kwargs):
+def generate_email_content(**kwargs):
+    run_date = kwargs.get('ds') or kwargs.get('logical_date') or date.today().strftime('%Y-%m-%d')
     logging.info(f"Generating personalized emails for run_date={run_date}")
     
     try:
@@ -380,6 +381,8 @@ def create_personalized_email_html(subscriber, featured, others, run_date):
 
 def send_email_python(**kwargs):
     """Send personalized emails to all subscribers"""
+    run_date = kwargs.get('ds') or kwargs.get('logical_date') or date.today().strftime('%Y-%m-%d')
+    
     ti = kwargs['ti']
     personalized_emails = ti.xcom_pull(task_ids='generate_email_content', key='personalized_emails')
     
@@ -393,7 +396,7 @@ def send_email_python(**kwargs):
     failure_count = 0
     
     for to_email, html_content in personalized_emails.items():
-        subject = f'Your Personalized Music Recommendations - {kwargs["run_date"]}'
+        subject = f'Your Personalized Music Recommendations - {run_date}'
         
         # Create the email message
         msg = MIMEMultipart()
@@ -423,7 +426,7 @@ with DAG(
     'Music_newsletter_dag',
     default_args=default_args,
     description='Weekly music newsletter with featured albums',
-    schedule=[VIEW_DATASET],  # Fridays at 12pm
+    schedule=[VIEW_DATASET],  
     catchup=False,
     tags=['music'],
 ) as dag:
@@ -431,13 +434,11 @@ with DAG(
     generate_email = PythonOperator(
         task_id='generate_email_content',
         python_callable=generate_email_content,
-        op_kwargs={"run_date": "{{ ds }}"}
     )
 
     send_email = PythonOperator(
         task_id='send_weekly_newsletter',
         python_callable=send_email_python,
-        op_kwargs={"run_date": "{{ ds }}"},
         retries=3,
         retry_delay=timedelta(minutes=2),
     )
