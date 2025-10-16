@@ -23,11 +23,34 @@ JWT_DATASET = Dataset("dataset://apple/jwt")
 VIEW_DATASET = Dataset("view://apple_music/v_weekly_new_releases")
 
 STORE_FRONT = 'US'
-PLAYLIST_ID = "pl.2b0e6e332fdf4b7a91164da3162127b5"  # New Music Daily
 TABLE_NAME = "apple_music_album_releases"
 VIEW_NAME = "v_weekly_new_releases"
 JWT_PATH = '/opt/airflow/secrets/apple_jwt.txt'
 SCHEMA = 'public'
+
+# PLAYLIST_ID = "pl.2b0e6e332fdf4b7a91164da3162127b5"  # New Music Daily
+PLAYLISTS = [
+    {
+        'id': "pl.2b0e6e332fdf4b7a91164da3162127b5",  # New Music Daily
+        'name': 'new_music_daily'
+    },
+    {
+        'id': "pl.f4d106fed2bd41149aaacabb233eb5eb",  # Today's Hits
+        'name': 'todays_hits'
+    },
+    # {
+    #     'id': "pl.7dbd2b6f5b6a4f958d2c52c4a9f1b1a2",  # Alternative Hits
+    #     'name': 'alternative_hits'
+    # },
+    {
+        'id': "pl.f19f6b5be8474fe789e36a6242f6113e",  # Hip-Hop/R&B Hits
+        'name': 'New Fire'
+    },
+    # {
+    #     'id': "pl.4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9",  # Rock Now
+    #     'name': 'rock_now'
+    # }
+]
 
 CREATE_TABLE_SQL = f"""
 CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
@@ -88,26 +111,38 @@ def get_headers():
     return {"Authorization": f"Bearer {get_jwt_token()}"}
 
 def fetch_playlist_data(**kwargs):
-    url = f"https://api.music.apple.com/v1/catalog/{STORE_FRONT}/playlists/{PLAYLIST_ID}"
-    response = requests.get(url, headers=get_headers())
-    if response.status_code != 200:
-        raise Exception(f"API Error: {response.status_code} - {response.text}")
-
-    playlist_data = response.json()
-    songs = playlist_data.get('data', [])[0].get('relationships', {}).get('tracks', {}).get('data', [])
-
-    trending_songs = [
-        {
-            "song_name": song.get('attributes', {}).get('name', 'Unknown Song'),
-            "album_name": song.get('attributes', {}).get('albumName', 'Unknown Album'),
-            "artist": song.get('attributes', {}).get('artistName', 'Unknown Artist')
-        }
-        for song in songs
-        if '- Single' not in song.get('attributes', {}).get('albumName', '')
-    ]
+    all_songs = []
     
-    kwargs['ti'].xcom_push(key='reduced_songs', value=trending_songs)
-    return trending_songs
+    for playlist in PLAYLISTS:
+        logging.info(f"Fetching data from playlist: {playlist['name']} ({playlist['id']})")
+        
+        url = f"https://api.music.apple.com/v1/catalog/{STORE_FRONT}/playlists/{playlist['id']}"
+        response = requests.get(url, headers=get_headers())
+        
+        if response.status_code != 200:
+            logging.warning(f"Failed to fetch playlist {playlist['name']}: {response.status_code}")
+            continue
+
+        playlist_data = response.json()
+        songs = playlist_data.get('data', [])[0].get('relationships', {}).get('tracks', {}).get('data', [])
+
+        trending_songs = [
+            {
+                "song_name": song.get('attributes', {}).get('name', 'Unknown Song'),
+                "album_name": song.get('attributes', {}).get('albumName', 'Unknown Album'),
+                "artist": song.get('attributes', {}).get('artistName', 'Unknown Artist'),
+                "playlist_source": playlist['name']  # Track which playlist it came from
+            }
+            for song in songs
+            if '- Single' not in song.get('attributes', {}).get('albumName', '')
+        ]
+        
+        all_songs.extend(trending_songs)
+        logging.info(f"Found {len(trending_songs)} songs from {playlist['name']}")
+    
+    kwargs['ti'].xcom_push(key='reduced_songs', value=all_songs)
+    logging.info(f"Total songs collected: {len(all_songs)}")
+    return all_songs
 
 def fetch_album_details(**kwargs):
     ti = kwargs['ti']
@@ -188,14 +223,11 @@ def store_album_data(**kwargs):
 with DAG(
     'apple_music_weekly_pipeline',
     default_args=default_args,
-    description='Fetches recent trending audio, and pull it in the album info to postgres if release date was recent ',
+    description='Fetches recent trending audio from multiple playlists and pulls album info to postgres',
     schedule=[JWT_DATASET],
     catchup=False,
     tags=['music', 'etl'],
 ) as dag:
-
-    def within_24h(execution_date):
-        return execution_date - timedelta(hours=1) 
 
     create_table = SQLExecuteQueryOperator(
         task_id='create_table',
