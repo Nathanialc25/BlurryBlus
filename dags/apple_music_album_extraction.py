@@ -134,7 +134,7 @@ def fetch_album_details(**kwargs):
                 })
     
     seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
-    recent_albums = [album for album in album_details if album['release_date'] and album['release_date'] >= seven_days_ago]
+    recent_albums = [album for album in album_details if album['release_date'] and album['release_date'] >= seven_days_ago and '- Single' not in album['album_name'] ]
     
     kwargs['ti'].xcom_push(key='recent_albums', value=recent_albums)
     return recent_albums
