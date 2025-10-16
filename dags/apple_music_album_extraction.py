@@ -28,28 +28,23 @@ VIEW_NAME = "v_weekly_new_releases"
 JWT_PATH = '/opt/airflow/secrets/apple_jwt.txt'
 SCHEMA = 'public'
 
-# PLAYLIST_ID = "pl.2b0e6e332fdf4b7a91164da3162127b5"  # New Music Daily
 PLAYLISTS = [
     {
         'id': "pl.2b0e6e332fdf4b7a91164da3162127b5",  # New Music Daily
-        'name': 'new_music_daily'
+        'name': 'NMD'
     },
     {
         'id': "pl.f4d106fed2bd41149aaacabb233eb5eb",  # Today's Hits
-        'name': 'todays_hits'
+        'name': 'Todays hits'
     },
-    # {
-    #     'id': "pl.7dbd2b6f5b6a4f958d2c52c4a9f1b1a2",  # Alternative Hits
-    #     'name': 'alternative_hits'
-    # },
     {
-        'id': "pl.f19f6b5be8474fe789e36a6242f6113e",  # Hip-Hop/R&B Hits
-        'name': 'New Fire'
+        'id': "pl.1fa57a04cd794a8aa482a3492f26fbcd",  # New hip hop
+        'name': 'New hiphop'
     },
-    # {
-    #     'id': "pl.4c3b2a1f0e9d8c7b6a5f4e3d2c1b0a9",  # Rock Now
-    #     'name': 'rock_now'
-    # }
+    {
+        'id': "pl.f19f6b5be8474fe789e36a6242f6113e",  # New Fire
+        'name': 'New Fire'
+    }
 ]
 
 CREATE_TABLE_SQL = f"""
@@ -168,7 +163,7 @@ def fetch_album_details(**kwargs):
                     'cover_art': get_album_artwork(album.get('artwork'))
                 })
     
-    seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+    seven_days_ago = (datetime.now() - timedelta(days=31)).strftime('%Y-%m-%d')
     recent_albums = [album for album in album_details if album['release_date'] and album['release_date'] >= seven_days_ago and '- Single' not in album['album_name'] ]
     
     kwargs['ti'].xcom_push(key='recent_albums', value=recent_albums)
