@@ -31,7 +31,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="apple_jwt_refresh",
+    dag_id="apple_music_token_generation",
     start_date=datetime(2025, 7, 30),
     schedule="30 12 * * 5",   # Fridays 8:30am
     catchup=False,

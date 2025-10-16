@@ -427,7 +427,7 @@ def send_email_python(**kwargs):
         raise Exception(f"Failed to send {failure_count} emails")
 
 with DAG(
-    'Music_newsletter_dag',
+    'Personalized_email_generation',
     default_args=default_args,
     description='Weekly music newsletter with featured albums',
     schedule=[VIEW_DATASET],  

@@ -216,7 +216,7 @@ def store_album_data(**kwargs):
         conn.close()
 
 with DAG(
-    'apple_music_weekly_pipeline',
+    'apple_music_album_extraction',
     default_args=default_args,
     description='Fetches recent trending audio from multiple playlists and pulls album info to postgres',
     schedule=[JWT_DATASET],
